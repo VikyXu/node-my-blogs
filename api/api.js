@@ -3,9 +3,17 @@ var url = require('url');
 var router=express.Router();
 var mongoose = require('mongoose');
 var Models = require('../model/index')
+var session = require('express-session');
 
 mongoose.connect('mongodb://localhost:27017/user', {useNewUrlParser: true});
+var app = express();
 
+app.use(session({
+    secret: 'VikyWebMyblogs', // 建议使用 128 个字符的随机字符串
+    resave: true,
+    saveUninitialized: false,
+    cookie: { maxAge: 60 * 1000 }
+}));
 // var admin=new Models.User({
 //     name: 'Viky',
 //     pwd: 'Viky523186',
@@ -29,6 +37,25 @@ mongoose.connect('mongodb://localhost:27017/user', {useNewUrlParser: true});
 //         console.log(ret)
 //     }
 // })
+// Models.User.findOne({ name: 'Viky' }, function (err, doc) {
+//     if (err){return err}else{
+//         // console.log(doc.pwd)
+//         doc.pwd='Viky123456'
+//         doc.save(
+//             function(err,ret){
+//                     if(err){
+//                         console.log(err)
+//                     }else{
+//                         console.log('保存成功')
+//                         console.log(ret)
+//                     }
+//                 }
+//         );
+//     }
+//     // doc.name = 'jason bourne';
+//     // doc.save(callback);
+//   })
+
 // const SecondTitle =new Models.SecondTitle({
 //     class_id: '5cbdff5dfc54490448c21f69',
 //     title: '啦啦啦',
@@ -61,18 +88,40 @@ mongoose.connect('mongodb://localhost:27017/user', {useNewUrlParser: true});
 //登录验证
 var userIsRight = function(username,password){
     return new Promise(function(resolve,reject){
-        Models.User.find({
+        Models.User.findOne({
             name:username
         },function(err,result){
-            if(result.length==0){
+            // if(result.length==0){
+            //     reject("用户名错误")
+            // }else if(result[0].pwd==password){
+            //     var userInfo={
+            //         name:username,
+            //         id:result[0]._id
+            //     }
+            //     resolve(JSON.stringify(userInfo));
+            // }else {
+            //     reject('密码错误');
+            // }
+            // if(result.length==0){
+            //     console.log('用户不存在')
+            // }
+            if(result===null){
                 reject("用户名错误")
-            }else if(result[0].pwd==password){
-                var userInfo={
-                    name:username
-                }
-                resolve(JSON.stringify(userInfo));
-            }else {
-                reject('密码错误');
+            }else{
+                result.comparePassword(password,function(err, isMatch){
+                    if (err) {
+                        reject(err)
+                    }
+                    if ((password, isMatch) == true) {
+                        var userInfo={
+                                name:username,
+                                id:result._id
+                            }
+                        resolve(JSON.stringify(userInfo))
+                      } else {
+                        reject("用户名或者密码错误")
+                      }
+                })
             }
         })
     })
@@ -198,20 +247,24 @@ const firstTitleToSecond = function(firstTitleId){
 }
 
 router.get('/test',function(request,response){
-    
+    request.session.user = data
 })
 
 router.post('/login',function(request,response){
     var username = request.body.username;
     var password = request.body.password;
     userIsRight(username,password).then(function(data){
+        // 此处写入的session 
+        request.session.user = data
         response.send(data)
+        // response.send(data)
     }).catch(function(err){
         response.send(err)
     })
 })
 
 router.get('/manage',function(requset,response){
+    console.log(requset.session.user)
     getFirstTitle().then(function(data){
         // return allTitleId(data)
         response.send(data)

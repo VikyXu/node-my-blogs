@@ -1,4 +1,6 @@
 var mongoose =require('mongoose')
+var bcrypt = require('bcrypt')  //密码加密
+var SALT_WORK_FACTOR = 10;
 
 const Schema = mongoose.Schema;
 
@@ -35,6 +37,30 @@ const SecondTitleSchema = new Schema({
         default: ''
     },
 });
+
+userSchema.pre('save', function(next) {
+    var user = this;
+    if (!user.isModified('pwd')) return next();
+    console.log(1)
+    bcrypt.genSalt(SALT_WORK_FACTOR, function(err, salt) {
+        console.log(salt)
+        if (err) return next(err);
+        bcrypt.hash(user.pwd, salt, function(err, hash) {
+            console.log(user.pwd)
+            console.log(3)
+            if (err) return next(err);
+            user.pwd = hash;
+            next();
+        });
+    });
+});
+
+userSchema.methods.comparePassword = function(candidatePassword, cb) {
+    bcrypt.compare(candidatePassword, this.pwd, function(err, isMatch) {
+        if (err) return cb(err);
+        cb(null, isMatch);
+    });
+};
 
 const Models = {
     User: mongoose.model('User', userSchema),
